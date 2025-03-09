@@ -43,9 +43,10 @@ const credentials = JSON.parse(process.env.GOOGLE_SHEETS_KEY_FILE);
 
 // Google Sheets Configuration
 const auth = new google.auth.GoogleAuth({
-  keyFile: credentials,
+  keyFile: process.env.GOOGLE_SHEETS_KEY_FILE,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
+
 
 const sheets = google.sheets({ version: 'v4', auth });
 
