@@ -271,5 +271,5 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server is running on job-application-backend-xo8s.vercel.app:${PORT}`);
 });
