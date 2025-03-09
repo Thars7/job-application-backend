@@ -13,7 +13,7 @@ const nodemailer = require('nodemailer');
 const app = express();
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN, 
+  origin: 'https://job-application-sigma-wine.vercel.app', 
   methods: ['GET', 'POST', 'OPTIONS'], 
   allowedHeaders: ['Content-Type', 'Authorization'], 
   credentials: true, 
