@@ -6,7 +6,6 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { google } = require('googleapis');
 const fetch = require('node-fetch');
 const cors = require('cors');
-const fs = require('fs');
 const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
 const nodemailer = require('nodemailer');
@@ -23,7 +22,8 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors()); 
 
-const upload = multer({ dest: 'uploads/' });
+// Configure multer to handle files in memory
+const upload = multer({ storage: multer.memoryStorage() });
 
 // AWS S3 Configuration (v3)
 const s3Client = new S3Client({
@@ -36,7 +36,7 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME;
 
-// Here, Google Sheets Configuration
+// Google Sheets Configuration
 const auth = new google.auth.GoogleAuth({
   keyFile: process.env.GOOGLE_SHEETS_KEY_FILE,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -44,11 +44,10 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: 'v4', auth });
 
-// Here, Extract text from PDF
-async function extractTextFromPDF(filePath) {
+// Extract text from PDF
+async function extractTextFromPDF(buffer) {
   try {
-    const dataBuffer = await fs.promises.readFile(filePath);
-    const data = await pdf(dataBuffer);
+    const data = await pdf(buffer);
     return data.text; 
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
@@ -56,10 +55,10 @@ async function extractTextFromPDF(filePath) {
   }
 }
 
-// Here, Extract text from DOCX
-async function extractTextFromDOCX(filePath) {
+// Extract text from DOCX
+async function extractTextFromDOCX(buffer) {
   try {
-    const result = await mammoth.extractRawText({ path: filePath });
+    const result = await mammoth.extractRawText({ buffer });
     return result.value; 
   } catch (error) {
     console.error('Error extracting text from DOCX:', error);
@@ -67,13 +66,12 @@ async function extractTextFromDOCX(filePath) {
   }
 }
 
-// Here, Upload file to S3 (v3)
-async function uploadToS3(filePath, fileName) {
-  const fileContent = await fs.promises.readFile(filePath);
+// Upload file to S3 (v3)
+async function uploadToS3(buffer, fileName) {
   const params = {
     Bucket: BUCKET_NAME,
     Key: fileName,
-    Body: fileContent,
+    Body: buffer,
     ACL: 'public-read',
   };
   const command = new PutObjectCommand(params);
@@ -81,7 +79,7 @@ async function uploadToS3(filePath, fileName) {
   return `https://${BUCKET_NAME}.s3.amazonaws.com/${fileName}`;
 }
 
-// Here, Store data in Google Sheets
+// Store data in Google Sheets
 async function storeInGoogleSheets(data) {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
   await sheets.spreadsheets.values.append({
@@ -132,14 +130,11 @@ async function sendEmail(email) {
   }
 }
 
-// Here, function to extract personal info (name, email, phone)
+// Extract personal info (name, email, phone)
 function extractPersonalInfo(text) {
-
-  // Case 1: Extract name with labels like "Name:", "NAME:", etc.
   const nameRegex = /(?:Name|NAME)\s*[:-]?\s*(.*)/i;
   let name = text.match(nameRegex)?.[1]?.trim() || '';
 
-  // Case 2: If no label is found, assume the first line is the name
   if (!name) {
     const lines = text.split('\n').map(line => line.trim());
     if (lines.length > 0) {
@@ -147,51 +142,46 @@ function extractPersonalInfo(text) {
     }
   }
 
-  // Extract email
   const emailRegex = /(?:Email|EMAIL)\s*[:-]?\s*(.*)/i;
   const email = text.match(emailRegex)?.[1]?.trim() || '';
 
-  // Extract phone
   const phoneRegex = /(?:Phone|PHONE)\s*[:-]?\s*(.*)/i;
   const phone = text.match(phoneRegex)?.[1]?.trim() || '';
 
   return { name, email, phone };
 }
 
-// Here, function to extract education
+// Extract education
 function extractEducation(text) {
   const educationRegex = /(Education|Educations|EDUCATION|EDUCATIONS)\s*([\s\S]*?)(?=Skills|Projects|Qualifications|$)/i;
   const match = text.match(educationRegex);
   if (!match) return [];
 
-  // Extract individual education entries
   const educationEntries = match[1].trim().split('\n').map(line => line.trim());
   return educationEntries.filter(entry => entry.length > 0);
 }
 
-// Here, function to extract skills
+// Extract skills
 function extractSkills(text) {
   const skillsRegex = /(Skill|Skills|SKILL|SKILLS|Qualifications)\s*([\s\S]*?)(?=Projects|Education|$)/i;
   const match = text.match(skillsRegex);
   if (!match) return [];
 
-  // Extract individual skills
   const skills = match[2].trim().split('\n').map(line => line.trim());
   return skills.filter(skill => skill.length > 0);
 }
 
-// Here function to extract projects
+// Extract projects
 function extractProjects(text) {
   const projectsRegex = /(Project|Projects|PROJECT|PROJECTS)\s*([\s\S]*?)(?=Education|Skills|Qualifications|$)/i;
   const match = text.match(projectsRegex);
   if (!match) return [];
 
-  // Extract individual projects
   const projects = match[1].trim().split('\n').map(line => line.trim());
   return projects.filter(project => project.length > 0);
 }
 
-//Here, Send HTTP request to webhook
+// Send HTTP request to webhook
 async function sendWebhook(email, cvData, publicUrl, education, skills, projects) {
   const webhookUrl = process.env.WEBHOOK_URL;
   const payload = {
@@ -232,25 +222,25 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
   const file = req.file;
 
   try {
-    //Here, Extract text from CV
-    const filePath = file.path;
+    // Extract text from CV
+    const buffer = file.buffer;
     const fileExtension = file.originalname.split('.').pop();
     let text = '';
     if (fileExtension === 'pdf') {
-      text = await extractTextFromPDF(filePath);
+      text = await extractTextFromPDF(buffer);
     } else if (fileExtension === 'docx') {
-      text = await extractTextFromDOCX(filePath);
+      text = await extractTextFromDOCX(buffer);
     }
 
-    //Here, Extract sections from the CV text
+    // Extract sections from the CV text
     const personalInfo = extractPersonalInfo(text);
     const education = extractEducation(text);
     const skills = extractSkills(text);
     const projects = extractProjects(text);
 
-    const publicUrl = await uploadToS3(filePath, file.originalname);
+    const publicUrl = await uploadToS3(buffer, file.originalname);
 
-    //Here, Store data in Google Sheets (each section in a separate column)
+    // Store data in Google Sheets
     await storeInGoogleSheets([
       personalInfo.name || name, 
       personalInfo.email || email, 
@@ -261,10 +251,10 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
       projects.join('\n'), 
     ]);
 
-    //It Send email using Nodemailer
+    // Send email using Nodemailer
     await sendEmail(email);
 
-    //It Send webhook
+    // Send webhook
     const cvData = {
       name: personalInfo.name || name,
       email: personalInfo.email || email,
@@ -283,19 +273,3 @@ const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
