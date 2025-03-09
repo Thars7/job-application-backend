@@ -39,11 +39,18 @@ const s3Client = new S3Client({
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME;
-const credentials = JSON.parse(process.env.GOOGLE_SHEETS_KEY_FILE);
+
+let credentials;
+try {
+  credentials = JSON.parse(process.env.GOOGLE_SHEETS_KEY_FILE);
+} catch (error) {
+  console.error('Error parsing GOOGLE_SHEETS_KEY_FILE:', error);
+  throw new Error('Invalid Google Sheets credentials.');
+}
 
 // Google Sheets Configuration
 const auth = new google.auth.GoogleAuth({
-  keyFile: process.env.GOOGLE_SHEETS_KEY_FILE,
+  keyFile: credentials,
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
