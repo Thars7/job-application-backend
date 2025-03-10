@@ -344,7 +344,8 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
     let text = '';
 
     if (fileExtension === 'pdf') {
-      text = await pdf(fileBuffer); // Extract text from PDF buffer
+      const data = await pdf(fileBuffer); // Extract text from PDF buffer
+      text = data.text;
     } else if (fileExtension === 'docx') {
       const result = await mammoth.extractRawText({ buffer: fileBuffer }); // Extract text from DOCX buffer
       text = result.value;
