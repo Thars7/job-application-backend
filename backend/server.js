@@ -75,8 +75,8 @@ async function extractTextFromDOCX(filePath) {
 }
 
 // Upload file to S3 (v3)
-async function uploadToS3(filePath, fileName) {
-  const fileContent = await fs.promises.readFile(filePath);
+async function uploadToS3(buffer, fileName) {
+  // const fileContent = await fs.promises.readFile(filePath);
   const params = {
     Bucket: BUCKET_NAME,
     Key: fileName,
