@@ -309,13 +309,15 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
 
   try {
     // Extract text from CV
-    const filePath = file.path;
+    const fileBuffer = file.buffer; // Use file.buffer instead of file.path
     const fileExtension = file.originalname.split('.').pop();
     let text = '';
+
     if (fileExtension === 'pdf') {
-      text = await extractTextFromPDF(filePath);
+      text = await pdf(fileBuffer); // Extract text from PDF buffer
     } else if (fileExtension === 'docx') {
-      text = await extractTextFromDOCX(filePath);
+      const result = await mammoth.extractRawText({ buffer: fileBuffer }); // Extract text from DOCX buffer
+      text = result.value;
     } else {
       throw new Error('Unsupported file format. Only PDF and DOCX are allowed.');
     }
@@ -327,7 +329,7 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
     const projects = extractProjects(text);
 
     // Upload CV to S3
-    const publicUrl = await uploadToS3(filePath, file.originalname);
+    const publicUrl = await uploadToS3(fileBuffer, file.originalname); // Pass file.buffer to S3
 
     // Store data in Google Sheets
     await storeInGoogleSheets([
