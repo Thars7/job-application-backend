@@ -200,6 +200,11 @@ function extractPersonalInfo(text) {
 // Extract education using NLP
 function extractEducation(text) {
 
+  // Ensure text is a string before processing
+  if (typeof text !== 'string') {
+    text = JSON.stringify(text);
+  }
+
   const doc = nlp(text);
 
   // Match different education-related terms using NLP
@@ -225,6 +230,12 @@ function extractEducation(text) {
 
 // Extract skills using NLP
 function extractSkills(text) {
+
+  // Ensure text is a string before processing
+  if (typeof text !== 'string') {
+    text = JSON.stringify(text);
+  }
+
   const doc = nlp(text);
 
   // Match different skills-related terms using NLP
@@ -251,6 +262,12 @@ function extractSkills(text) {
 
 // Extract projects using NLP
 function extractProjects(text) {
+
+  // Ensure text is a string before processing
+  if (typeof text !== 'string') {
+    text = JSON.stringify(text);
+  }
+  
   const doc = nlp(text);
 
   // Match different project-related terms using NLP
