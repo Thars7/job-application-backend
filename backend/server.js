@@ -80,7 +80,7 @@ async function uploadToS3(filePath, fileName) {
   const params = {
     Bucket: BUCKET_NAME,
     Key: fileName,
-    Body: fileContent,
+    Body: buffer,
     ACL: 'public-read',
   };
   const command = new PutObjectCommand(params);
