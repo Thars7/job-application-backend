@@ -28,6 +28,10 @@ app.options('*', cors());
 // Configure multer to handle files in memory
 const upload = multer({ storage: multer.memoryStorage() });
 
+app.get('/',(req,res) => {
+  res.send("hello world!!!")
+})
+
 // AWS S3 Configuration (v3)
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
