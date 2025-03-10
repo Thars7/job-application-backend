@@ -715,7 +715,7 @@ app.listen(PORT, () => {
 //   }
 // });
 
-const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
-  console.log(`Server is running on job-application-backend-xo8s.vercel.app:${PORT}`);
-});
+// const PORT = process.env.PORT || 5001;
+// app.listen(PORT, () => {
+//   console.log(`Server is running on job-application-backend-xo8s.vercel.app:${PORT}`);
+// });
