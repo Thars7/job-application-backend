@@ -25,8 +25,8 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors()); 
 
-// Multer configuration for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Configure multer to handle files in memory
+const upload = multer({ storage: multer.memoryStorage() });
 
 // AWS S3 Configuration (v3)
 const s3Client = new S3Client({
