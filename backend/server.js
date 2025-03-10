@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); 
 
 const express = require('express');
 const multer = require('multer');
@@ -6,23 +6,24 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { google } = require('googleapis');
 const fetch = require('node-fetch');
 const cors = require('cors');
+const fs = require('fs');
 const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
 const nodemailer = require('nodemailer');
-const nlp = require('compromise');
+const nlp = require('compromise'); 
 
 const app = express();
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  origin: process.env.CORS_ORIGIN, 
+  methods: ['GET', 'POST', 'OPTIONS'], 
+  allowedHeaders: ['Content-Type', 'Authorization'], 
+  credentials: true, 
 }));
 
 // Handle preflight requests
-app.options('*', cors());
+app.options('*', cors()); 
 
 // Configure multer to handle files in memory
 const upload = multer({ storage: multer.memoryStorage() });
@@ -47,33 +48,35 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: 'v4', auth });
 
 // Extract text from PDF
-async function extractTextFromPDF(buffer) {
+async function extractTextFromPDF(filePath) {
   try {
-    const data = await pdf(buffer);
-    return data.text;
+    const dataBuffer = await fs.promises.readFile(filePath);
+    const data = await pdf(dataBuffer);
+    return data.text; 
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
-    return '';
+    return ''; 
   }
 }
 
 // Extract text from DOCX
-async function extractTextFromDOCX(buffer) {
+async function extractTextFromDOCX(filePath) {
   try {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value;
+    const result = await mammoth.extractRawText({ path: filePath });
+    return result.value; 
   } catch (error) {
     console.error('Error extracting text from DOCX:', error);
-    return '';
+    return ''; 
   }
 }
 
 // Upload file to S3 (v3)
-async function uploadToS3(buffer, fileName) {
+async function uploadToS3(filePath, fileName) {
+  const fileContent = await fs.promises.readFile(filePath);
   const params = {
     Bucket: BUCKET_NAME,
     Key: fileName,
-    Body: buffer,
+    Body: fileContent,
     ACL: 'public-read',
   };
   const command = new PutObjectCommand(params);
@@ -86,7 +89,7 @@ async function storeInGoogleSheets(data) {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: 'Sheet1',
+    range: 'Sheet1', 
     valueInputOption: 'RAW',
     resource: { values: [data] },
   });
@@ -96,15 +99,15 @@ async function storeInGoogleSheets(data) {
 async function sendEmail(email) {
   const senderName = "Applicant";
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: 'gmail', 
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: process.env.EMAIL_USER, 
+      pass: process.env.EMAIL_PASS, 
     },
   });
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: process.env.EMAIL_USER, 
     to: email,
     subject: 'Application Received – Your CV is Under Review',
     text: `Dear ${senderName},
@@ -113,7 +116,7 @@ async function sendEmail(email) {
     We will get back to you soon regarding the next steps. If you have any questions, feel free to reply to this email.
     
     Best regards,  
-    Tharsa S.`,
+    Tharsa S.`, 
     html: `
     <p>Dear ${senderName},</p>
     <p>Thank you for submitting your application. We have successfully received your CV and our team is currently reviewing your qualifications.</p>
@@ -121,7 +124,7 @@ async function sendEmail(email) {
     <br>
     <p>Best regards,</p>
     <p><strong>Tharsa S.</strong></p>
-    `,
+    `, 
   };
 
   try {
@@ -134,10 +137,9 @@ async function sendEmail(email) {
 
 // Extract personal info using NLP
 function extractPersonalInfo(text) {
-  // Ensure text is a string
+  // Ensure text is a string before processing
   if (typeof text !== 'string') {
-    console.error('Expected text to be a string, but got:', typeof text, text);
-    return { name: '', email: '', phone: '' };
+    text = JSON.stringify(text);
   }
 
   const doc = nlp(text);
@@ -157,13 +159,15 @@ function extractPersonalInfo(text) {
     if (personMatch) {
       name = personMatch.trim();
     } else {
-      // Assume the first line as a fallback
+      // Assume the first non-empty line as a fallback
       const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-      name = lines[0];
+      if (lines.length > 0) {
+        name = lines[0];
+      }
     }
   }
 
-  // Extract Email (with or without label)
+  // **Extract Email** (with or without label)
   const emailRegex = /(Email|EMAIL)?\s*[:\-]?\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i;
   const emailMatch = text.match(emailRegex);
   if (emailMatch) {
@@ -176,7 +180,7 @@ function extractPersonalInfo(text) {
     }
   }
 
-  // Extract Phone Number (with or without label)
+  // **Extract Phone Number** (with or without label)
   const phoneRegex = /(Phone Number|Phone number|Contact Number|Contact number|Contact|CONTACT|Phone|PHONE)?\s*[:\-]?\s*(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/i;
   const phoneMatch = text.match(phoneRegex);
   if (phoneMatch) {
@@ -192,8 +196,10 @@ function extractPersonalInfo(text) {
   return { name, email, phone };
 }
 
+
 // Extract education using NLP
 function extractEducation(text) {
+
   const doc = nlp(text);
 
   // Match different education-related terms using NLP
@@ -242,6 +248,7 @@ function extractSkills(text) {
   return uniqueSkills;
 }
 
+
 // Extract projects using NLP
 function extractProjects(text) {
   const doc = nlp(text);
@@ -267,6 +274,7 @@ function extractProjects(text) {
   return uniqueProjects;
 }
 
+
 // Send HTTP request to webhook
 async function sendWebhook(email, cvData, publicUrl, education, skills, projects) {
   const webhookUrl = process.env.WEBHOOK_URL;
@@ -285,7 +293,7 @@ async function sendWebhook(email, cvData, publicUrl, education, skills, projects
     metadata: {
       applicant_name: cvData.name,
       email: cvData.email,
-      status: 'prod',
+      status: 'prod', 
       cv_processed: true,
       processed_timestamp: new Date().toISOString(),
     },
@@ -309,29 +317,18 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
   const file = req.file;
 
   try {
-    // Ensure file is present
-    if (!file) {
-      throw new Error('No file uploaded.');
-    }
-
     // Extract text from CV
-    const fileBuffer = file.buffer;
+    const fileBuffer = file.buffer; // Use file.buffer instead of file.path
     const fileExtension = file.originalname.split('.').pop();
     let text = '';
 
     if (fileExtension === 'pdf') {
-      console.log('Extracting text from PDF...');
-      text = await extractTextFromPDF(fileBuffer);
+      text = await pdf(fileBuffer); // Extract text from PDF buffer
     } else if (fileExtension === 'docx') {
-      console.log('Extracting text from DOCX...');
-      text = await extractTextFromDOCX(fileBuffer);
+      const result = await mammoth.extractRawText({ buffer: fileBuffer }); // Extract text from DOCX buffer
+      text = result.value;
     } else {
       throw new Error('Unsupported file format. Only PDF and DOCX are allowed.');
-    }
-
-    // Ensure text is a string
-    if (typeof text !== 'string') {
-      throw new Error('Failed to extract text from the file.');
     }
 
     // Extract sections from the CV text using NLP
@@ -340,20 +337,10 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
     const skills = extractSkills(text);
     const projects = extractProjects(text);
 
-    console.log('Extracted data:', {
-      personalInfo,
-      education,
-      skills,
-      projects,
-    });
-
     // Upload CV to S3
-    console.log('Uploading file to S3...');
-    const publicUrl = await uploadToS3(fileBuffer, file.originalname);
-    console.log('File uploaded to S3:', publicUrl);
+    const publicUrl = await uploadToS3(fileBuffer, file.originalname); // Pass file.buffer to S3
 
     // Store data in Google Sheets
-    console.log('Storing data in Google Sheets...');
     await storeInGoogleSheets([
       personalInfo.name || name,
       personalInfo.email || email,
@@ -365,11 +352,9 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
     ]);
 
     // Send email
-    console.log('Sending email...');
     await sendEmail(email);
 
     // Send webhook
-    console.log('Sending webhook...');
     const cvData = {
       name: personalInfo.name || name,
       email: personalInfo.email || email,
@@ -377,11 +362,10 @@ app.post('/submit', upload.single('cv'), async (req, res) => {
     };
     await sendWebhook(email, cvData, publicUrl, education, skills, projects);
 
-    console.log('Application submitted successfully!');
     res.json({ message: 'Application submitted successfully!' });
   } catch (error) {
-    console.error('Error processing application:', error);
-    res.status(500).json({ message: error.message || 'Error processing application.' });
+    console.error(error);
+    res.status(500).json({ message: 'Error processing application.' });
   }
 });
 
